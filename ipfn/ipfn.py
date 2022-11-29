@@ -53,19 +53,6 @@ class ipfn(object):
         self.verbose = verbose
         self.rate_tolerance = rate_tolerance
 
-    @staticmethod
-    def index_axis_elem(dims, axes, elems):
-        inc_axis = 0
-        idx = ()
-        for dim in range(dims):
-            if (inc_axis < len(axes)):
-                if (dim == axes[inc_axis]):
-                    idx += (elems[inc_axis],)
-                    inc_axis += 1
-                else:
-                    idx += (np.s_[:],)
-        return idx
-
     def ipfn_np(self, m, aggregates, dimensions, weight_col='total'):
         """
         Runs the ipfn method from a matrix m, aggregates/marginals and the dimension(s) preserved.
@@ -90,26 +77,22 @@ class ipfn(object):
             assert aggregate.dtype.kind == 'f'
         assert len(aggregates) == len(dimensions)
 
-        dim = len(m.shape)
-
         # Calculate the new weights for each dimension
         for aggregate, dimension in zip(aggregates, dimensions):
-            product_elem = [range(m.shape[d]) for d in dimension]
-            for item in product(*product_elem):
-                idx = self.index_axis_elem(dim, dimension, item)
-                mijk = m[idx].sum()
-                scale_factor = aggregate[item] / mijk if mijk != 0 else 1
-                m[idx] *= scale_factor
+            sumdims = tuple(d for d in range(m.ndim) if d not in dimension)
+            m_sum = m.sum(axis=sumdims, keepdims=True, dtype=aggregate.dtype)
+            aggregate = np.expand_dims(aggregate, axis=sumdims)
+            scale_factor = np.ones(m_sum.shape, m.dtype)
+            np.divide(aggregate, m_sum, out=scale_factor, where=(m_sum!=0))
+            m *= scale_factor
 
         # Check the convergence rate for each dimension
         max_conv = 0
         for aggregate, dimension in zip(aggregates, dimensions):
-            product_elem = [range(m.shape[d]) for d in dimension]
-            for item in product(*product_elem):
-                idx = self.index_axis_elem(dim, dimension, item)
-                ori_ijk = aggregate[item]
-                m_ijk = m[idx].sum()
-                max_conv = max(max_conv, abs(m_ijk / ori_ijk - 1))
+            sumdims = tuple(d for d in range(m.ndim) if d not in dimension)
+            m_sum = m.sum(axis=sumdims, dtype=aggregate.dtype)
+            convergence = abs(m_sum / aggregate - 1)
+            max_conv = max(max_conv, convergence.max())
 
         return m, max_conv
 
