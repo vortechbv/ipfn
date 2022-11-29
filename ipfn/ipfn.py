@@ -78,21 +78,18 @@ class ipfn(object):
         assert len(aggregates) == len(dimensions)
 
         # Calculate the new weights for each dimension
+        max_conv = 0
         for aggregate, dimension in zip(aggregates, dimensions):
             sumdims = tuple(d for d in range(m.ndim) if d not in dimension)
             m_sum = m.sum(axis=sumdims, keepdims=True, dtype=aggregate.dtype)
             aggregate = np.expand_dims(aggregate, axis=sumdims)
+            # Check convergence before scaling
+            convergence = abs(m_sum / aggregate - 1)
+            max_conv = max(max_conv, convergence.max())
+            # Scale m along dimension
             scale_factor = np.ones(m_sum.shape, m.dtype)
             np.divide(aggregate, m_sum, out=scale_factor, where=(m_sum!=0))
             m *= scale_factor
-
-        # Check the convergence rate for each dimension
-        max_conv = 0
-        for aggregate, dimension in zip(aggregates, dimensions):
-            sumdims = tuple(d for d in range(m.ndim) if d not in dimension)
-            m_sum = m.sum(axis=sumdims, dtype=aggregate.dtype)
-            convergence = abs(m_sum / aggregate - 1)
-            max_conv = max(max_conv, convergence.max())
 
         return m, max_conv
 
