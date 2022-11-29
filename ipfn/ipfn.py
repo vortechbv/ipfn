@@ -98,20 +98,9 @@ class ipfn(object):
             product_elem = [range(m.shape[d]) for d in dimension]
             for item in product(*product_elem):
                 idx = self.index_axis_elem(dim, dimension, item)
-                m_slice = m[idx]
-                mijk = m_slice.sum()
-                xijk = aggregate[item]
-                if mijk == 0:
-                    # m_slice += 1e-5
-                    # TODO: Basically, this part would remain 0 as always right? Cause if the sum of the slice is zero, then we only have zeros in this slice.
-                    # TODO: you could put it as m_new[idx] = m_slice (since multiplication on zero is still zero)
-                    m_new[idx] = m_slice
-                else:
-                    m_new[idx] = m_slice * 1.0 * xijk / mijk
-                # For debug purposes
-                # if np.isnan(m_new).any():
-                #     print(idx)
-                #     sys.exit(0)
+                mijk = m[idx].sum()
+                scale_factor = aggregate[item] / mijk if mijk != 0 else 1
+                m_new[idx] = m[idx] * scale_factor
             m, m_new = m_new, m
 
         # Check the convergence rate for each dimension
@@ -121,11 +110,8 @@ class ipfn(object):
             for item in product(*product_elem):
                 idx = self.index_axis_elem(dim, dimension, item)
                 ori_ijk = aggregate[item]
-                m_slice = m[idx]
-                m_ijk = m_slice.sum()
-                # print("Current vs original", abs(m_ijk/ori_ijk - 1))
-                if abs(m_ijk / ori_ijk - 1) > max_conv:
-                    max_conv = abs(m_ijk / ori_ijk - 1)
+                m_ijk = m[idx].sum()
+                max_conv = max(max_conv, abs(m_ijk / ori_ijk - 1))
 
         return m, max_conv
 
