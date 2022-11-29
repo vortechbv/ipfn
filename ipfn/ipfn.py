@@ -91,7 +91,6 @@ class ipfn(object):
         assert len(aggregates) == len(dimensions)
 
         dim = len(m.shape)
-        m_new = np.zeros_like(m)
 
         # Calculate the new weights for each dimension
         for aggregate, dimension in zip(aggregates, dimensions):
@@ -100,8 +99,7 @@ class ipfn(object):
                 idx = self.index_axis_elem(dim, dimension, item)
                 mijk = m[idx].sum()
                 scale_factor = aggregate[item] / mijk if mijk != 0 else 1
-                m_new[idx] = m[idx] * scale_factor
-            m, m_new = m_new, m
+                m[idx] *= scale_factor
 
         # Check the convergence rate for each dimension
         max_conv = 0
